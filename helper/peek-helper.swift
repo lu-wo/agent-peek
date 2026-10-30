@@ -1,4 +1,7 @@
 // peek-helper: read-only macOS window inspector used by the peek MCP server.
+// It ships inside "Agent Peek.app" and is launched through LaunchServices, so macOS asks for permissions on behalf of Agent Peek.
+//   peek-helper status                 -> which permissions Agent Peek has
+//   peek-helper request-access         -> shows macOS's Accessibility and Screen Recording prompts and adds Agent Peek to those lists
 //   peek-helper list                 -> JSON of app windows (visible, minimized, other Spaces), front-to-back
 //   peek-helper text <windowId> [maxChars] -> JSON with the window's accessibility text, URL, document path
 //   peek-helper shot <windowId> <out.png>  -> window screenshot
@@ -246,7 +249,7 @@ func openMessages() -> OpaquePointer {
     let path = "\(home)/Library/Messages/chat.db"
     guard FileManager.default.isReadableFile(atPath: path), let db = openDB(path),
           !query(db, "SELECT 1 FROM message LIMIT 1").isEmpty
-    else { fail("Cannot read Messages. Grant Full Disk Access to the app running peek (your terminal, Claude, Codex or ChatGPT), then restart it.") }
+    else { fail("Cannot read Messages. Turn on Agent Peek under System Settings → Privacy & Security → Full Disk Access, then retry.") }
     return db
 }
 
@@ -293,7 +296,27 @@ let messageFrom = """
 let args = CommandLine.arguments
 guard args.count >= 2 else { fail("usage: peek-helper list | text <windowId> [maxChars] | shot <windowId> <out.png>") }
 
+// Full Disk Access has no query API; reading a protected file is the test.
+func fullDiskAccess() -> Bool {
+    (try? FileHandle(forReadingFrom: URL(fileURLWithPath: "\(home)/Library/Messages/chat.db"))) != nil
+}
+
+func permissions() -> [String: Any] {
+    ["accessibility": AXIsProcessTrusted(), "screenRecording": CGPreflightScreenCaptureAccess(), "fullDiskAccess": fullDiskAccess(),
+     "app": Bundle.main.bundlePath]
+}
+
 switch args[1] {
+case "status":
+    emit(permissions())
+
+case "request-access":
+    if !AXIsProcessTrusted() {
+        _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+    }
+    if !CGPreflightScreenCaptureAccess() { _ = CGRequestScreenCaptureAccess() }
+    emit(permissions())
+
 case "list":
     let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
     let wins = windows()
@@ -313,7 +336,7 @@ case "text":
     guard args.count >= 3, let id = Int(args[2]) else { fail("text needs a windowId") }
     let maxChars = args.count >= 4 ? Int(args[3]) ?? 60000 : 60000
     guard let w = windows().first(where: { $0.id == id }) else { fail("window \(id) not on screen") }
-    guard AXIsProcessTrusted() else { fail("Accessibility permission missing for the host process") }
+    guard AXIsProcessTrusted() else { fail("Turn on Agent Peek under System Settings → Privacy & Security → Accessibility, then retry.") }
     guard let axw = axWindow(for: w) else { fail("no accessibility window for \(w.app)") }
     var c = Collector(maxChars: maxChars, deadline: Date().addingTimeInterval(6))
     c.walk(axw, depth: 0)

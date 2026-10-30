@@ -4,7 +4,7 @@
   "display_name": "Peek",
   "version": "0.1.0",
   "description": "Let Claude see what's open on your Mac: app windows, browser tabs, the clipboard, Finder selections and Messages.",
-  "long_description": "Peek is a read-only tool for apps that have no connector. Claude can list the windows and browser tabs you have open, then read the ones it needs as text, a screenshot or both. It also reads the clipboard, files selected in Finder, PDFs open in Preview and your iMessage/SMS history (you can turn Messages off in settings).\n\nEverything stays on your Mac: Peek makes no network calls, except to fetch a public page when a background browser tab is suspended. Password managers are always blocked, and you can block more apps in settings.\n\nAfter installing, grant Claude Accessibility and Screen Recording in System Settings → Privacy & Security, plus Full Disk Access for Messages. Then restart Claude.",
+  "long_description": "Peek is a read-only tool for apps that have no connector. Claude can list the windows and browser tabs you have open, then read the ones it needs as text, a screenshot or both. It also reads the clipboard, files selected in Finder, PDFs open in Preview and your iMessage/SMS history (you can turn Messages off in settings).\n\nEverything stays on your Mac: Peek makes no network calls, except to fetch a public page when a background browser tab is suspended. Password managers are always blocked, and you can block more apps in settings.\n\nPeek runs as its own small app, Agent Peek. The first time Claude uses it, macOS asks you to allow Agent Peek under Accessibility and Screen Recording in System Settings → Privacy & Security (plus Full Disk Access for Messages). No restart is needed.",
   "author": {
     "name": "Lukas Wolf",
     "url": "https://github.com/lu-wo"
@@ -43,7 +43,7 @@
     "enable_messages": {
       "type": "boolean",
       "title": "Read Messages history",
-      "description": "Let Claude read and search your iMessage/SMS history. Requires Full Disk Access for Claude. Turn off to hide the Messages tools.",
+      "description": "Let Claude read and search your iMessage/SMS history. Requires Full Disk Access for Agent Peek. Turn off to hide the Messages tools.",
       "default": true,
       "required": false
     },

@@ -2,16 +2,11 @@
 // peek: a read-only MCP server that lets an agent see what is open on this Mac.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { execFile } from "node:child_process";
-import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, readdir, stat } from "node:fs/promises";
 import { join, dirname, extname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { z } from "zod";
-
-const run = promisify(execFile);
-const HELPER = join(dirname(fileURLToPath(import.meta.url)), "helper", "peek-helper");
+import { helper, run, withTmp } from "./helper.mjs";
 
 // Apps that are never listed or read. Extend with PEEK_BLOCK="App One,App Two".
 const BLOCKED = new Set([
@@ -26,20 +21,7 @@ const NOISE = new Set([
   "AvatarPickerMemojiPicker", "Window Server", "Dock", "Control Center", "Notification Center",
 ]);
 const BROWSERS = ["Arc", "Google Chrome"];
-
-const GATEKEEPER_HINT =
-  "macOS may have blocked peek's helper because it isn't notarized yet. Open System Settings → Privacy & Security, scroll to Security, " +
-  `click "Allow Anyway" next to peek-helper, then retry. Installing with the install script avoids this. Helper: ${HELPER}`;
-
-async function helper(...args) {
-  const { stdout } = await run(HELPER, args, { maxBuffer: 64 * 1024 * 1024, timeout: 30000 }).catch((e) => ({
-    // Gatekeeper either kills a quarantined helper or holds it behind a dialog until we time out; both leave no output.
-    stdout: e.stdout || JSON.stringify({ error: e.signal || e.code === "EACCES" ? GATEKEEPER_HINT : e.message }),
-  }));
-  const out = JSON.parse(stdout);
-  if (out.error) throw new Error(out.error);
-  return out;
-}
+let askedForAccess = false;
 
 // Runs AppleScript with arguments passed through argv, so nothing needs escaping.
 async function osa(script, args = [], timeout = 5000) {
@@ -136,15 +118,6 @@ const TEXT_EXT = new Set([".txt", ".md", ".markdown", ".csv", ".tsv", ".json", "
 const TEXTUTIL_EXT = new Set([".docx", ".doc", ".rtf", ".rtfd", ".odt", ".webarchive", ".html", ".htm"]);
 const IMAGE_EXT = new Set([".png", ".jpg", ".jpeg", ".heic", ".gif", ".webp", ".tiff", ".tif", ".bmp"]);
 
-async function withTmp(fn) {
-  const dir = await mkdtemp(join(tmpdir(), "peek-"));
-  try {
-    return await fn(dir);
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
-}
-
 // Resizes any image to a JPEG small enough to hand to a model.
 async function imageContent(path) {
   return withTmp(async (dir) => {
@@ -217,8 +190,19 @@ server.registerTool(
       .filter((w) => !BLOCKED.has(w.app) && !NOISE.has(w.app))
       .map(({ id, app, title, zOrder, state }) => ({ id, app, title, state, zOrder }));
     const tabs = include_tabs ? (await Promise.all(BROWSERS.filter((b) => !BLOCKED.has(b)).map(browserTabs))).flat() : [];
+    const missing = [!list.accessibilityTrusted && "Accessibility", !list.screenRecording && "Screen Recording"].filter(Boolean);
+    // Ask macOS once per session to show its permission prompts, which also adds Agent Peek to the Settings lists.
+    if (missing.length && !askedForAccess) {
+      askedForAccess = true;
+      await helper("request-access").catch(() => {});
+    }
     return json({
       permissions: { accessibility: list.accessibilityTrusted, screenRecording: list.screenRecording },
+      ...(missing.length && {
+        permissionHint:
+          `Window titles and text are unavailable until the user turns on "Agent Peek" under System Settings → Privacy & Security → ${missing.join(" and ")}. ` +
+          "Tell the user this; it takes effect immediately, with no restart. Browser tabs still work.",
+      }),
       windows,
       browserTabs: tabs.map(({ app, title, url, active }) => ({ app, title, url, active })),
       note: "Apps running without any window cannot be read. Windows on other Spaces are read via screenshot OCR.",
@@ -349,7 +333,7 @@ if (MESSAGES_ENABLED) {
     "messages_list_chats",
     {
       title: "List recent iMessage/SMS chats",
-      description: "Lists the most recent Messages conversations with contact names and last activity. Requires Full Disk Access for the host app.",
+      description: "Lists the most recent Messages conversations with contact names and last activity. Requires Full Disk Access for Agent Peek.",
       inputSchema: { limit: z.number().int().min(1).max(200).default(30) },
     },
     async ({ limit }) => {

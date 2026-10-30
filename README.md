@@ -56,8 +56,8 @@ Manage it later with the `agent-peek` command:
 ```sh
 agent-peek connect codex          # connect another agent
 agent-peek disconnect claude-desktop
+agent-peek grant                  # give Agent Peek its macOS permissions
 agent-peek doctor                 # check connections and permissions
-agent-peek doctor --open-settings # open the right System Settings panes
 ```
 
 Before changing an agent's config file, peek saves a one-time backup next to it (`*.peek-backup`). It never touches anything else in that file.
@@ -66,15 +66,17 @@ The machine-wide install needs Node.js 18 or newer (`brew install node`). The Cl
 
 ### Then grant permissions (both modes)
 
-macOS gives permissions to **the app that runs peek**: Claude.app, Codex.app, or your terminal for the CLIs. Open System Settings → Privacy & Security and turn that app on under:
+Peek's native part runs as its own small app, **Agent Peek**, so you grant permissions once to Agent Peek, not to each agent. Run `agent-peek grant`, or just ask your agent what's on your screen: macOS shows its prompts the first time. In System Settings → Privacy & Security, turn on Agent Peek under:
 
 - **Accessibility**: reading window text
 - **Screen Recording**: screenshots, and windows on other Spaces
-- **Full Disk Access**: Messages history (skip it if you turned Messages off)
+- **Full Disk Access**: Messages history (skip it if you turned Messages off; add Agent Peek with **+**)
 
-Then restart the app. The first time peek reads a browser tab, macOS asks whether the app may control Arc or Chrome. Click Allow.
+Changes take effect immediately; nothing needs restarting. The first time peek reads a browser tab, macOS asks whether your agent app may control Arc or Chrome. Click Allow.
 
-> **"peek-helper Not Opened" / "Apple could not verify…"** Peek isn't notarized yet. Open System Settings → Privacy & Security, scroll to *Security*, click **Allow Anyway** next to peek-helper, and retry. The `curl` installer avoids this prompt.
+> **Why a separate app?** Agent apps such as the Claude desktop app start tools in a way that stops macOS from passing the app's own permissions on to them. Turning Claude.app on under Accessibility therefore doesn't help peek. Launching Agent Peek on its own makes it the app macOS checks.
+
+> **"Agent Peek Not Opened" / "Apple could not verify…"** Peek isn't notarized yet. Open System Settings → Privacy & Security, scroll to *Security*, click **Allow Anyway** next to Agent Peek, and retry. The `curl` installer avoids this prompt. Until releases are signed with a Developer ID, each update also resets Agent Peek's permissions, so you'll need to switch them on again.
 
 The ChatGPT chat app isn't supported because it only accepts remote servers. Codex inside the ChatGPT desktop app works.
 
@@ -107,15 +109,15 @@ The ChatGPT chat app isn't supported because it only accepts remote servers. Cod
 
 ## How it works
 
-- `helper/peek-helper.swift` is a small native CLI using CoreGraphics (window list), Accessibility (text), `screencapture` (screenshots), Vision (OCR), PDFKit (PDFs), NSPasteboard (clipboard) and SQLite (Messages and Contacts).
-- `server.mjs` is an MCP server on stdio. It calls the helper, AppleScript (browser tabs, Finder selection) and `textutil` for Word, RTF and HTML.
+- `helper/peek-helper.swift` is a small native command-line program, packaged as `Agent Peek.app` and launched with `open` so it holds its own permissions. It uses CoreGraphics (window list), Accessibility (text), `screencapture` (screenshots), Vision (OCR), PDFKit (PDFs), NSPasteboard (clipboard) and SQLite (Messages and Contacts).
+- `server.mjs` is an MCP server on stdio. It calls the helper (through `helper.mjs`), AppleScript (browser tabs, Finder selection) and `textutil` for Word, RTF and HTML.
 - `cli.mjs` provides the `agent-peek` connect, disconnect and doctor commands.
 
 ## Develop
 
 ```sh
 npm install
-scripts/build-helper.sh    # universal helper binary
+scripts/build-helper.sh    # helper/Agent Peek.app with a universal binary
 scripts/package.sh         # dist/agent-peek.mcpb + dist/agent-peek-macos.tar.gz
 node cli.mjs connect claude-code
 ```

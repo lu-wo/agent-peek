@@ -1,4 +1,5 @@
 node_modules/
 helper/peek-helper
+helper/Agent Peek.app/
 dist/
 .DS_Store

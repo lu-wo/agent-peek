@@ -1,11 +1,11 @@
 #!/bin/sh
-# Submits a Developer ID-signed binary to Apple's notary service and waits for the verdict.
+# Submits a Developer ID-signed app or binary to Apple's notary service, waits for the verdict,
+# and staples the ticket to an app so Gatekeeper can check it offline.
 # Credentials, either:
 #   PEEK_NOTARY_PROFILE   a keychain profile saved with `xcrun notarytool store-credentials`
 #   APPLE_API_KEY_PATH + APPLE_API_KEY_ID + APPLE_API_ISSUER   an App Store Connect API key (CI)
-# A bare binary can't be stapled; Gatekeeper looks the ticket up online on first run.
 set -eu
-bin=${1:?usage: notarize.sh <signed binary>}
+bin=${1:?usage: notarize.sh <signed app or binary>}
 
 if [ -n "${PEEK_NOTARY_PROFILE:-}" ]; then
   auth="--keychain-profile $PEEK_NOTARY_PROFILE"
@@ -29,4 +29,5 @@ if [ "$status" != "Accepted" ]; then
   xcrun notarytool log "$id" $auth >&2 || true
   exit 1
 fi
+case "$bin" in *.app) xcrun stapler staple "$bin" ;; esac
 echo "notarized $bin"

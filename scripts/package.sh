@@ -14,16 +14,16 @@ node -e '
 
 if [ -n "${PEEK_SIGN_IDENTITY:-}" ]; then
   scripts/build-helper.sh
-  scripts/notarize.sh helper/peek-helper
+  scripts/notarize.sh "helper/Agent Peek.app"
 else
-  [ -x helper/peek-helper ] || scripts/build-helper.sh
+  [ -x "helper/Agent Peek.app/Contents/MacOS/peek-helper" ] || scripts/build-helper.sh
 fi
 
 rm -rf dist
 stage=dist/agent-peek
 mkdir -p "$stage/helper"
-cp manifest.json package.json package-lock.json server.mjs cli.mjs README.md LICENSE "$stage/"
-cp helper/peek-helper "$stage/helper/"
+cp manifest.json package.json package-lock.json server.mjs cli.mjs helper.mjs README.md LICENSE "$stage/"
+ditto "helper/Agent Peek.app" "$stage/helper/Agent Peek.app"
 (cd "$stage" && npm ci --omit=dev --ignore-scripts --silent)
 
 npx -y @anthropic-ai/mcpb pack "$stage" dist/agent-peek.mcpb >/dev/null

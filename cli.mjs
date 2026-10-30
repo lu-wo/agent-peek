@@ -1,34 +1,28 @@
 #!/usr/bin/env node
 // agent-peek CLI: run the MCP server, connect it to agents, and check permissions.
-import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
+import { APP, helper, run } from "./helper.mjs";
 
-const run = promisify(execFile);
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVER = join(HERE, "server.mjs");
-const HELPER = join(HERE, "helper", "peek-helper");
 const HOME = homedir();
 
 const AGENTS = {
   "claude-desktop": {
     name: "Claude desktop app",
-    app: "Claude.app",
     config: join(HOME, "Library/Application Support/Claude/claude_desktop_config.json"),
     detect: () => existsSync("/Applications/Claude.app"),
   },
   "claude-code": {
     name: "Claude Code (CLI)",
-    app: "your terminal app",
     detect: async () => Boolean(await which("claude")),
   },
   codex: {
     name: "Codex (app and CLI)",
-    app: "Codex.app or your terminal app",
     config: join(HOME, ".codex/config.toml"),
     detect: async () => existsSync(join(HOME, ".codex")) || existsSync("/Applications/Codex.app") || Boolean(await which("codex")),
   },
@@ -52,7 +46,6 @@ function parseFlags(argv) {
     else if (a === "--messages") flags.messages = true;
     else if (a === "--block") flags.block = argv[++i] ?? "";
     else if (a.startsWith("--block=")) flags.block = a.slice(8);
-    else if (a === "--open-settings") flags.openSettings = true;
     else flags.agents.push(a);
   }
   return flags;
@@ -183,7 +176,7 @@ async function connect(flags) {
     }
   }
   console.log(`\nMessages history: ${flags.messages ? "on (needs Full Disk Access; reconnect with --no-messages to turn off)" : "off"}`);
-  console.log("\nNext: restart each agent app, then grant it permissions. Run `agent-peek doctor` for details.");
+  console.log("\nNext: restart each agent app, then run `agent-peek grant` to give Agent Peek its permissions.");
 }
 
 async function disconnect(flags) {
@@ -194,34 +187,41 @@ async function disconnect(flags) {
   }
 }
 
-async function doctor(flags) {
+const check = (ok) => (ok ? "✓" : "✗");
+
+async function doctor() {
   console.log(`agent-peek at ${HERE}\nnode ${process.version} (${process.execPath})\n`);
-  let probe;
+  let status;
   try {
-    probe = JSON.parse((await run(HELPER, ["list"])).stdout);
-    console.log("✓ helper runs");
+    status = await helper("status");
+    console.log(`✓ Agent Peek runs (${APP})`);
   } catch (e) {
-    console.log(`✗ helper failed: ${e.message.split("\n")[0]}`);
+    console.log(`✗ Agent Peek failed: ${e.message.split("\n")[0]}`);
   }
-  if (probe) {
-    console.log(`  From this terminal: Accessibility ${probe.accessibilityTrusted ? "✓" : "✗"}  Screen Recording ${probe.screenRecording ? "✓" : "✗"}`);
+  if (status) {
+    console.log(`  Accessibility ${check(status.accessibility)}  Screen Recording ${check(status.screenRecording)}  Full Disk Access ${check(status.fullDiskAccess)} (Messages only)`);
   }
 
   console.log("\nAgents:");
   for (const [key, a] of Object.entries(AGENTS)) {
     const installed = await a.detect();
     const connected = installed && (await WRITERS[key].connected().catch(() => false));
-    console.log(`  ${connected ? "✓" : installed ? "○" : "–"} ${a.name}: ${connected ? `connected, grant permissions to ${a.app}` : installed ? "installed, not connected (agent-peek connect " + key + ")" : "not installed"}`);
+    console.log(`  ${connected ? "✓" : installed ? "○" : "–"} ${a.name}: ${connected ? "connected" : installed ? "installed, not connected (agent-peek connect " + key + ")" : "not installed"}`);
   }
+  if (status && !(status.accessibility && status.screenRecording)) console.log("\nRun `agent-peek grant` to fix the missing permissions.");
+}
 
-  console.log(`
-macOS grants permissions to the app that runs peek (Claude.app, Codex.app, or your terminal), not to peek itself.
-In System Settings → Privacy & Security, turn that app on under:
-  • Accessibility      — read window text
-  • Screen Recording   — screenshots and windows on other Spaces
-  • Full Disk Access   — Messages history (skip if you connected with --no-messages)
-Then restart the app.${flags.openSettings ? "" : "\nRun `agent-peek doctor --open-settings` to open those panes."}`);
-  if (flags.openSettings) for (const url of Object.values(SETTINGS)) await run("open", [url]);
+// Shows macOS's own prompts, which add Agent Peek to the Settings lists, then opens the panes to switch it on.
+async function grant() {
+  const status = await helper("request-access");
+  console.log(`Agent Peek needs these switched on in System Settings → Privacy & Security:
+  ${check(status.accessibility)} Accessibility      — read window text
+  ${check(status.screenRecording)} Screen Recording   — screenshots and windows on other Spaces
+  ${check(status.fullDiskAccess)} Full Disk Access   — Messages history only (use + and pick ${APP})
+Changes take effect immediately; no agent needs restarting.`);
+  if (!status.accessibility) await run("open", [SETTINGS.accessibility]);
+  if (!status.screenRecording) await run("open", [SETTINGS.screenRecording]);
+  if (!status.fullDiskAccess) await run("open", [SETTINGS.fullDisk]);
 }
 
 function help() {
@@ -230,7 +230,8 @@ function help() {
 Usage:
   agent-peek connect [agent...] [--no-messages] [--block "App,App"]   Connect peek to agents (default: every agent found)
   agent-peek disconnect [agent...]                                Remove peek from agents (default: all)
-  agent-peek doctor [--open-settings]                             Check the helper, connections and permissions
+  agent-peek grant                                                Give Agent Peek its macOS permissions
+  agent-peek doctor                                               Check the helper, connections and permissions
   agent-peek serve                                                Run the MCP server on stdio (what agents call)
 
 Agents: ${Object.keys(AGENTS).join(", ")}, all`);
@@ -242,7 +243,8 @@ try {
   if (cmd === "serve" || (!cmd && !process.stdin.isTTY)) await import("./server.mjs");
   else if (cmd === "connect") await connect(flags);
   else if (cmd === "disconnect") await disconnect(flags);
-  else if (cmd === "doctor") await doctor(flags);
+  else if (cmd === "grant") await grant();
+  else if (cmd === "doctor") await doctor();
   else help();
 } catch (e) {
   console.error(e.message);

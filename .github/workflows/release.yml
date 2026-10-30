@@ -47,7 +47,7 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
-          rm -f helper/peek-helper
+          rm -rf "helper/Agent Peek.app"
           scripts/package.sh
 
       - name: Publish release
