@@ -1,0 +1,31 @@
+{
+  "name": "agent-peek",
+  "version": "0.1.0",
+  "description": "Let Claude, Codex and other local agents see what's open on your Mac: windows, browser tabs, clipboard, Finder, Messages",
+  "main": "server.mjs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Lukas Wolf",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lu-wo/agent-peek.git"
+  },
+  "homepage": "https://github.com/lu-wo/agent-peek",
+  "os": [
+    "darwin"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "agent-peek": "cli.mjs"
+  }
+}

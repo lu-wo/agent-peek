@@ -1,0 +1,63 @@
+{
+  "manifest_version": "0.3",
+  "name": "agent-peek",
+  "display_name": "Peek",
+  "version": "0.1.0",
+  "description": "Let Claude see what's open on your Mac: app windows, browser tabs, the clipboard, Finder selections and Messages.",
+  "long_description": "Peek is a read-only tool for apps that have no connector. Claude can list the windows and browser tabs you have open, then read the ones it needs as text, a screenshot or both. It also reads the clipboard, files selected in Finder, PDFs open in Preview and your iMessage/SMS history (you can turn Messages off in settings).\n\nEverything stays on your Mac: Peek makes no network calls, except to fetch a public page when a background browser tab is suspended. Password managers are always blocked, and you can block more apps in settings.\n\nAfter installing, grant Claude Accessibility and Screen Recording in System Settings → Privacy & Security, plus Full Disk Access for Messages. Then restart Claude.",
+  "author": {
+    "name": "Lukas Wolf",
+    "url": "https://github.com/lu-wo"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lu-wo/agent-peek"
+  },
+  "homepage": "https://github.com/lu-wo/agent-peek",
+  "support": "https://github.com/lu-wo/agent-peek/issues",
+  "license": "MIT",
+  "keywords": ["macos", "screen", "context", "windows", "browser", "clipboard", "finder", "messages", "accessibility"],
+  "server": {
+    "type": "node",
+    "entry_point": "server.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server.mjs"],
+      "env": {
+        "PEEK_MESSAGES": "${user_config.enable_messages}",
+        "PEEK_BLOCK": "${user_config.blocked_apps}"
+      }
+    }
+  },
+  "tools": [
+    { "name": "list_sources", "description": "List open windows (visible, minimized, other Spaces) and browser tabs" },
+    { "name": "peek", "description": "Read a window as text, optionally with a screenshot" },
+    { "name": "read_tab", "description": "Read any open Arc or Chrome tab, including background tabs" },
+    { "name": "peek_clipboard", "description": "Read the clipboard: text, links, files or an image" },
+    { "name": "peek_finder_selection", "description": "Read the files selected in Finder" },
+    { "name": "messages_list_chats", "description": "List recent iMessage/SMS chats (can be turned off in settings)" },
+    { "name": "messages_read", "description": "Read an iMessage/SMS chat (can be turned off in settings)" },
+    { "name": "messages_search", "description": "Search iMessage/SMS (can be turned off in settings)" }
+  ],
+  "user_config": {
+    "enable_messages": {
+      "type": "boolean",
+      "title": "Read Messages history",
+      "description": "Let Claude read and search your iMessage/SMS history. Requires Full Disk Access for Claude. Turn off to hide the Messages tools.",
+      "default": true,
+      "required": false
+    },
+    "blocked_apps": {
+      "type": "string",
+      "title": "Blocked apps",
+      "description": "Comma-separated app names Peek must never read, e.g. Signal, WhatsApp. Password managers are always blocked.",
+      "default": "",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin"],
+    "runtimes": { "node": ">=18.0.0" }
+  },
+  "privacy_policies": []
+}
