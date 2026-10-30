@@ -1,6 +1,6 @@
 {
   "name": "agent-peek",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Let Claude, Codex and other local agents see what's open on your Mac: windows, browser tabs, clipboard, Finder, Messages",
   "main": "server.mjs",
   "scripts": {

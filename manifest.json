@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "agent-peek",
   "display_name": "Peek",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Let Claude see what's open on your Mac: app windows, browser tabs, the clipboard, Finder selections and Messages.",
   "long_description": "Peek is a read-only tool for apps that have no connector. Claude can list the windows and browser tabs you have open, then read the ones it needs as text, a screenshot or both. It also reads the clipboard, files selected in Finder, PDFs open in Preview and your iMessage/SMS history (you can turn Messages off in settings).\n\nEverything stays on your Mac: Peek makes no network calls, except to fetch a public page when a background browser tab is suspended. Password managers are always blocked, and you can block more apps in settings.\n\nPeek runs as its own small app, Agent Peek. The first time Claude uses it, macOS asks you to allow Agent Peek under Accessibility and Screen Recording in System Settings → Privacy & Security (plus Full Disk Access for Messages). No restart is needed.",
   "author": {
